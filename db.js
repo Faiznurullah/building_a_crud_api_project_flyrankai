@@ -18,12 +18,13 @@ const SEED = [
   { title: "Call the client", done: 0 },
 ];
 
+const insertSeed = db.prepare("INSERT INTO tasks (title, done) VALUES (?, ?)");
+const seedAll = db.transaction((rows) => {
+  for (const row of rows) insertSeed.run(row.title, row.done);
+});
+
 const count = db.prepare("SELECT COUNT(*) AS n FROM tasks").get().n;
 if (count === 0) {
-  const insert = db.prepare("INSERT INTO tasks (title, done) VALUES (?, ?)");
-  const seedAll = db.transaction((rows) => {
-    for (const row of rows) insert.run(row.title, row.done);
-  });
   seedAll(SEED);
   console.log(`Seeded ${SEED.length} tasks into ${DB_PATH}`);
 }
@@ -44,4 +45,49 @@ function createTask(title) {
   return getTaskById(info.lastInsertRowid);
 }
 
-module.exports = { db, getAllTasks, getTaskById, createTask };
+function updateTask(id, fields) {
+  const sets = [];
+  const params = [];
+  if (fields.title !== undefined) {
+    sets.push("title = ?");
+    params.push(fields.title);
+  }
+  if (fields.done !== undefined) {
+    sets.push("done = ?");
+    params.push(fields.done ? 1 : 0);
+  }
+  if (sets.length === 0) return undefined;
+  params.push(id);
+  const info = db.prepare(`UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+  return info.changes === 0 ? undefined : getTaskById(id);
+}
+
+function deleteTask(id) {
+  return db.prepare("DELETE FROM tasks WHERE id = ?").run(id).changes > 0;
+}
+
+function getStats() {
+  const total = db.prepare("SELECT COUNT(*) AS n FROM tasks").get().n;
+  const done = db.prepare("SELECT COUNT(*) AS n FROM tasks WHERE done = 1").get().n;
+  return { total, done, open: total - done };
+}
+
+function resetTasks() {
+  const run = db.transaction(() => {
+    db.prepare("DELETE FROM tasks").run();
+    seedAll(SEED);
+  });
+  run();
+  return getAllTasks();
+}
+
+module.exports = {
+  db,
+  getAllTasks,
+  getTaskById,
+  createTask,
+  updateTask,
+  deleteTask,
+  getStats,
+  resetTasks,
+};
