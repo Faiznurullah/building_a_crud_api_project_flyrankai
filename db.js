@@ -28,4 +28,15 @@ if (count === 0) {
   console.log(`Seeded ${SEED.length} tasks into ${DB_PATH}`);
 }
 
-module.exports = db;
+const rowToTask = (row) => ({ id: row.id, title: row.title, done: row.done === 1 });
+
+function getAllTasks() {
+  return db.prepare("SELECT * FROM tasks ORDER BY id").all().map(rowToTask);
+}
+
+function getTaskById(id) {
+  const row = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
+  return row ? rowToTask(row) : undefined;
+}
+
+module.exports = { db, getAllTasks, getTaskById };

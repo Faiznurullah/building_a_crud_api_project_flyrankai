@@ -1,7 +1,7 @@
 const express = require("express");
 const swaggerUi = require("swagger-ui-express");
 const openapi = require("./openapi.json");
-require("./db");
+const { getAllTasks, getTaskById } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,9 +16,8 @@ const SEED = [
 
 let tasks = SEED.map((t) => ({ ...t }));
 let nextId = tasks.length + 1;
-
-const findTask = (id) => tasks.find((t) => t.id === id);
 const parseId = (raw) => Number.parseInt(raw, 10);
+const findTask = (id) => tasks.find((t) => t.id === id);
 
 app.get("/", (req, res) => {
   res.json({ name: "Task API", version: "1.0", endpoints: ["/tasks"] });
@@ -30,7 +29,7 @@ app.get("/health", (req, res) => {
 
 app.get("/tasks", (req, res) => {
   const { done, search } = req.query;
-  let result = tasks;
+  let result = getAllTasks();
   if (done === "true" || done === "false") {
     const want = done === "true";
     result = result.filter((t) => t.done === want);
@@ -44,7 +43,7 @@ app.get("/tasks", (req, res) => {
 });
 
 app.get("/tasks/:id", (req, res) => {
-  const task = findTask(parseId(req.params.id));
+  const task = getTaskById(parseId(req.params.id));
   if (!task) return res.status(404).json({ error: `Task ${req.params.id} not found` });
   res.json(task);
 });
