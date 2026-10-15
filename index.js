@@ -1,7 +1,7 @@
 const express = require("express");
 const swaggerUi = require("swagger-ui-express");
 const openapi = require("./openapi.json");
-const { getAllTasks, getTaskById } = require("./db");
+const { getAllTasks, getTaskById, createTask } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,7 +15,6 @@ const SEED = [
 ];
 
 let tasks = SEED.map((t) => ({ ...t }));
-let nextId = tasks.length + 1;
 const parseId = (raw) => Number.parseInt(raw, 10);
 const findTask = (id) => tasks.find((t) => t.id === id);
 
@@ -56,9 +55,7 @@ app.post("/tasks", (req, res) => {
       .status(400)
       .json({ error: "title is required and must be a non-empty string" });
   }
-  const task = { id: nextId++, title, done: false };
-  tasks.push(task);
-  res.status(201).json(task);
+  res.status(201).json(createTask(title));
 });
 
 app.put("/tasks/:id", (req, res) => {
@@ -103,7 +100,6 @@ app.get("/stats", (req, res) => {
 
 app.post("/reset", (req, res) => {
   tasks = SEED.map((t) => ({ ...t }));
-  nextId = tasks.length + 1;
   res.json(tasks);
 });
 
