@@ -28,7 +28,18 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/tasks", (req, res) => {
-  res.json(tasks);
+  const { done, search } = req.query;
+  let result = tasks;
+  if (done === "true" || done === "false") {
+    const want = done === "true";
+    result = result.filter((t) => t.done === want);
+  }
+  if (typeof search === "string" && search.length > 0) {
+    result = result.filter((t) =>
+      t.title.toLowerCase().includes(search.toLowerCase())
+    );
+  }
+  res.json(result);
 });
 
 app.get("/tasks/:id", (req, res) => {
@@ -85,7 +96,29 @@ app.delete("/tasks/:id", (req, res) => {
   res.status(204).send();
 });
 
+app.get("/stats", (req, res) => {
+  const done = tasks.filter((t) => t.done).length;
+  res.json({ total: tasks.length, done, open: tasks.length - done });
+});
+
+app.post("/reset", (req, res) => {
+  tasks = SEED.map((t) => ({ ...t }));
+  nextId = tasks.length + 1;
+  res.json(tasks);
+});
+
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi));
+
+app.use((req, res) => {
+  res.status(404).json({ error: `Not found: ${req.method} ${req.path}` });
+});
+
+app.use((err, req, res, next) => {
+  if (err.type === "entity.parse.failed" || err instanceof SyntaxError) {
+    return res.status(400).json({ error: "invalid JSON body" });
+  }
+  res.status(500).json({ error: "internal server error" });
+});
 
 app.listen(PORT, () => {
   console.log(`Task API listening on http://localhost:${PORT} (docs at /docs)`);
