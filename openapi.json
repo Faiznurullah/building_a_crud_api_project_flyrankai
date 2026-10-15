@@ -1,0 +1,141 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Task API",
+    "version": "1.0",
+    "description": "A simple in-memory CRUD API for managing to-do tasks."
+  },
+  "servers": [{ "url": "http://localhost:3000" }],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "API info",
+        "tags": ["Meta"],
+        "responses": { "200": { "description": "API metadata" } }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "tags": ["Meta"],
+        "responses": { "200": { "description": "Service is alive" } }
+      }
+    },
+    "/tasks": {
+      "get": {
+        "summary": "List all tasks",
+        "tags": ["Tasks"],
+        "parameters": [
+          { "name": "done", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "Filter by completion status" },
+          { "name": "search", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Case-insensitive title search" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of tasks",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Task" } } } }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new task",
+        "tags": ["Tasks"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": { "title": { "type": "string", "example": "Buy milk" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Task created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } }
+          },
+          "400": {
+            "description": "Invalid body",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/tasks/{id}": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "description": "Task id" }
+      ],
+      "get": {
+        "summary": "Get one task",
+        "tags": ["Tasks"],
+        "responses": {
+          "200": { "description": "The task", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "put": {
+        "summary": "Update a task (title and/or done)",
+        "tags": ["Tasks"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string", "example": "Buy oat milk" },
+                  "done": { "type": "boolean", "example": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated task", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "400": { "description": "Invalid body", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "summary": "Delete a task",
+        "tags": ["Tasks"],
+        "responses": {
+          "204": { "description": "Deleted (no body)" },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "summary": "Task statistics",
+        "tags": ["Extras"],
+        "responses": { "200": { "description": "{ total, done, open }" } }
+      }
+    },
+    "/reset": {
+      "post": {
+        "summary": "Reset to the seed tasks",
+        "tags": ["Extras"],
+        "responses": { "200": { "description": "The 3 seed tasks" } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "title": { "type": "string", "example": "Buy milk" },
+          "done": { "type": "boolean", "example": false }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": { "error": { "type": "string", "example": "Task 99 not found" } }
+      }
+    }
+  }
+}
