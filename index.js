@@ -35,6 +35,19 @@ app.get("/tasks/:id", (req, res) => {
   res.json(task);
 });
 
+app.post("/tasks", (req, res) => {
+  const body = req.body || {};
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  if (title.length === 0) {
+    return res
+      .status(400)
+      .json({ error: "title is required and must be a non-empty string" });
+  }
+  const task = { id: nextId++, title, done: false };
+  tasks.push(task);
+  res.status(201).json(task);
+});
+
 app.listen(PORT, () => {
   console.log(`Task API listening on http://localhost:${PORT}`);
 });
