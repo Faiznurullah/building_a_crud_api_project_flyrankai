@@ -1,3 +1,7 @@
 node_modules/
 .env
 *.log
+tasks.db
+tasks.db-journal
+tasks.db-wal
+tasks.db-shm
