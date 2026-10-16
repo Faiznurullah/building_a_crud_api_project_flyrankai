@@ -548,6 +548,102 @@
           }
         }
       }
+    },
+    "/ai/classify": {
+      "post": {
+        "summary": "Classify text with the AI provider",
+        "description": "Sends the text to the configured OpenAI-compatible model and returns a schema-validated classification (category, priority, confidence). Invalid model output triggers one repair attempt. Requests time out and are retried on transient failures. Requires a bearer token only when AI_REQUIRE_AUTH=true.",
+        "tags": [
+          "ai"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "text"
+                ],
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "example": "The app crashes when I press pay"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated classification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiClassification"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing, empty, or over-long text",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server misconfiguration (e.g. invalid API key)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "AI returned an invalid response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AI provider unavailable, try again later",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "AI provider timed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -585,6 +681,42 @@
           "error": {
             "type": "string",
             "example": "Task 99 not found"
+          }
+        }
+      },
+      "AiClassification": {
+        "type": "object",
+        "required": [
+          "category",
+          "priority",
+          "confidence"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "bug",
+              "feature",
+              "question",
+              "other"
+            ],
+            "example": "bug"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "example": "high"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "example": 0.9
           }
         }
       }
