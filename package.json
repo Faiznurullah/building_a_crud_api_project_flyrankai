@@ -1,17 +1,22 @@
 {
   "name": "building_a_crud_api_project_flyrankai",
   "version": "1.0.0",
-  "description": "A simple in-memory CRUD Task API with Swagger UI (W2 A1 FlyRank).",
-  "main": "index.js",
+  "description": "Layered CRUD Task API (Postgres in Docker, with SQLite and in-memory repositories) + Swagger UI.",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/server.js",
+    "test": "node --test"
   },
   "author": "Faiz Nurullah",
   "license": "ISC",
   "dependencies": {
-    "better-sqlite3": "^13.0.3",
+    "dotenv": "^18.0.8",
     "express": "^5.3.0",
+    "pg": "^8.23.1",
+    "redis": "^6.3.0",
     "swagger-ui-express": "^5.0.1"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^13.0.3"
   }
 }

@@ -1,0 +1,11 @@
+node_modules
+.git
+.gitignore
+.env
+tasks.db
+tasks.db-*
+docs
+*.log
+Dockerfile
+docker-compose.yml
+.dockerignore
