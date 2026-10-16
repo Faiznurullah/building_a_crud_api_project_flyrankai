@@ -1,192 +1,160 @@
-# Task API (SQLite)
+# Auth: Login & Protect (Supabase Auth + JWT)
 
-REST API sederhana untuk mengelola daftar to-do. Dibuat dengan **Node.js + Express**, menyimpan data di **SQLite** (`tasks.db`), dan menyediakan **Swagger UI** di `/docs`.
+REST API aman dengan fitur **Sign Up, Log In, Log Out** dan **rute terlindungi**. Manajemen akun dan penerbitan token diserahkan ke **Supabase Auth** sebagai *Identity Provider (IdP)*. Backend hanya memverifikasi **JWT (access token)** yang dikirim client lewat header `Authorization: Bearer <token>`.
 
-Proyek ini adalah lanjutan tugas W2 · A1 → **W3 · A1**: mengganti penyimpanan in-memory dengan database SQLite. **Kontrak API tidak berubah** — hanya lapisan penyimpanannya.
+> Prinsip utama: **tidak menulis kriptografi atau hashing password sendiri.** Semua kredensial ditangani Supabase.
+
+Proyek ini dibangun dengan **Node.js + Express** dan menyediakan **Swagger UI** di `/docs` (dengan tombol **Authorize**).
+
+## Fitur
+
+- `POST /auth/signup` — daftar akun baru (via `supabase.auth.signUp`).
+- `POST /auth/login` — login dan dapatkan `access_token` + `refresh_token` (via `signInWithPassword`).
+- `POST /auth/logout` — akhiri sesi (rute terlindungi).
+- `GET /protected/profile` — data profil privat (verifikasi token via `getUser`).
+- `GET /protected/dashboard` — rute terlindungi kedua (bukti middleware dapat dipakai ulang).
+- `GET /public/info` — informasi publik tanpa login.
+- Middleware autentikasi yang dapat dipakai ulang (`src/middleware/auth.js`).
+
+## Alur Autentikasi (segitiga kepercayaan)
 
 ```
-Sebelum : Client → API → Array di memori
-Sesudah : Client → API (Express) → db.js (lapisan data) → SQLite (tasks.db)
+1. Client  --(email,password)-->  Backend  --signUp/signInWithPassword-->  Supabase Auth
+2. Supabase Auth  --(JWT access token + refresh token)-->  Backend  -->  Client
+3. Client  --(Authorization: Bearer <JWT>)-->  Backend
+4. Backend  --getUser(token)-->  Supabase Auth  (verifikasi)
+   valid   -> buka rute terlindungi
+   invalid -> 401
 ```
 
-## Yang Berubah & Yang Tetap
+## Pilihan Teknologi
 
-| | Sebelum (W2) | Sekarang (W3) |
-| --- | --- | --- |
-| Penyimpanan | Array di memori | SQLite `tasks.db` |
-| Persistensi | Hilang saat restart | **Tetap** setelah restart |
-| Seed | Selalu di-reset di memori | Hanya jika tabel kosong |
-| URL, body, status code | — | **Tidak berubah** |
-| Format respons | `id`, `title`, `done` | Sama (+ `created_at`, `updated_at` aditif) |
-| Swagger UI `/docs` | Ada | Ada |
-
-## Alasan Memilih SQLite
-
-- Berupa **satu file** (`tasks.db`), tanpa server database terpisah — cocok untuk pembelajaran dan mudah dipindah.
-- **Dibuat otomatis** saat aplikasi pertama dijalankan; tidak ada langkah instalasi manual.
-- Mendukung SQL standar (`SELECT`, `INSERT`, `UPDATE`, `DELETE`, `WHERE`, `COUNT`), sehingga saat pindah ke PostgreSQL/MySQL nanti konsepnya sama.
-- Cepat dan tidak perlu konfigurasi (zero-config) untuk proyek kecil.
+| Aspek | Implementasi |
+| --- | --- |
+| Runtime | Node.js (diuji v22) |
+| Framework | Express |
+| SDK Supabase | `@supabase/supabase-js` |
+| Swagger UI | `swagger-ui-express` + `openapi.json` di `/docs` |
+| Port default | 3000 |
+| Skema Bearer | `securitySchemes.bearerAuth` (type `http`, scheme `bearer`, format JWT) |
 
 ## Prasyarat
 
-- **Node.js 18+** (diuji pada Node.js v22)
+- Node.js 18+ (diuji Node.js v22)
 - npm
+- Akun/proyek Supabase (URL + **anon public key**)
 
-## Instalasi & Menjalankan
+## Environment Variable
+
+Buat file `.env` dari contoh (`.env.example`):
+
+```env
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_KEY=<anon-public-key>
+PORT=3000
+```
+
+> **Penting:** hanya gunakan **anon key**. Jangan pernah memakai atau menaruh `service_role` key di repo. `.env` sudah masuk `.gitignore` sehingga tidak ikut ter-commit.
+
+Di dashboard Supabase, untuk latihan ini **nonaktifkan "Confirm email"** (Authentication → Providers → Email) agar akun langsung bisa login, atau konfirmasi email uji terlebih dahulu.
+
+## Menjalankan (satu perintah)
 
 ```bash
 npm install && npm start
 ```
 
-Server berjalan di `http://localhost:3000`. Dokumentasi interaktif di `http://localhost:3000/docs`.
+Saat start, server mencatat:
 
-Saat pertama kali dijalankan, aplikasi otomatis membuat `tasks.db`, tabel `tasks`, dan mengisi 3 task contoh **hanya jika tabel kosong**. Restart berulang tidak akan menggandakan data.
-
-## Lokasi Database
-
-File database: **`tasks.db`** di root proyek (path relatif terhadap folder proyek, dibuat dari `__dirname`). File ini **tidak** di-commit ke Git (lihat `.gitignore`) karena dibuat otomatis; setiap orang yang meng-clone cukup menjalankan `npm start`.
-
-## Tabel Endpoint
-
-| # | Method | Path | Implementasi SQL | Sukses | Error |
-| - | ------ | ---- | ---------------- | ------ | ----- |
-| 1 | GET | `/` | — | 200 | — |
-| 2 | GET | `/health` | — | 200 | — |
-| 3 | GET | `/tasks` | `SELECT * FROM tasks` | 200 | — |
-| 4 | GET | `/tasks/:id` | `SELECT * FROM tasks WHERE id = ?` | 200 | 404 |
-| 5 | POST | `/tasks` | `INSERT INTO tasks (title, done) VALUES (?, 0)` | 201 | 400 |
-| 6 | PUT | `/tasks/:id` | `UPDATE tasks SET ... WHERE id = ?` | 200 | 400, 404 |
-| 7 | DELETE | `/tasks/:id` | `DELETE FROM tasks WHERE id = ?` | 204 | 404 |
-| — | GET | `/stats` | `SELECT COUNT(*) ...` (extras) | 200 | — |
-| — | POST | `/reset` | hapus + seed ulang (extras) | 200 | — |
-| — | GET | `/docs` | Swagger UI | 200 | — |
-
-Setiap error mengembalikan JSON `{ "error": "<pesan>" }`. Pesan 404 memakai format lama `Task <id> not found` agar kontrak tidak berubah.
-
-## Skema Database
-
-```sql
-CREATE TABLE tasks (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  title      TEXT    NOT NULL,
-  done       INTEGER NOT NULL DEFAULT 0,   -- SQLite tidak punya boolean: 0/1
-  created_at TEXT,
-  updated_at TEXT
-);
+```
+Task API listening on http://localhost:3000 (docs at /docs)
+Server running and connected to Supabase
 ```
 
-Catatan: `done` disimpan sebagai integer `0`/`1`, lalu dikonversi kembali menjadi `true`/`false` pada respons JSON oleh lapisan API. Kolom `created_at`/`updated_at` ditambahkan lewat migrasi `ALTER TABLE` (dijelaskan di bagian Extras).
+Buka Swagger UI di <http://localhost:3000/docs>.
 
-## Aturan Validasi
+## Referensi API
 
-- **POST** — `title` wajib ada, bertipe string, dan tidak kosong (setelah di-trim). Jika tidak → **400**.
-- **PUT** — body harus berisi minimal satu dari `title` atau `done`; `title` (jika ada) harus string tidak kosong, `done` (jika ada) harus boolean. Selain itu → **400**.
-- `PUT` melakukan **update parsial**.
-- Semua query memakai **parameterized query** (`?`), bukan menyambung string, agar terhindar dari SQL injection.
+| Method | Path | Auth | Sukses | Error |
+| --- | --- | --- | --- | --- |
+| POST | `/auth/signup` | Tidak | `201` + objek user | `400` |
+| POST | `/auth/login` | Tidak | `200` + `access_token`, `refresh_token` | `400`, `401` |
+| POST | `/auth/logout` | **Ya** (Bearer) | `204` | `401` |
+| GET | `/protected/profile` | **Ya** (Bearer) | `200` + data user | `401` |
+| GET | `/protected/dashboard` | **Ya** (Bearer) | `200` | `401` |
+| GET | `/public/info` | Tidak | `200` | — |
 
-## Contoh `curl -i`
+### Pesan error baku
+
+| Situasi | Body |
+| --- | --- |
+| Kredensial login salah | `{ "error": "Invalid login credentials" }` |
+| Header Authorization hilang/format salah | `{ "error": "Access token required" }` |
+| Token invalid/kedaluwarsa | `{ "error": "Invalid or expired token" }` |
+
+## Contoh `curl`
 
 ```bash
-curl -i -X POST http://localhost:3000/tasks \
+# Sign up
+curl -i -X POST http://localhost:3000/auth/signup \
   -H "Content-Type: application/json" \
-  -d '{"title":"Buy milk"}'
-```
+  -d '{"email":"test@example.com","password":"password123"}'
 
-Output:
+# Log in
+curl -i -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}'
+# -> { "access_token": "...", "refresh_token": "..." }
 
-```
-HTTP/1.1 201 Created
-X-Powered-By: Express
-Content-Type: application/json; charset=utf-8
-Content-Length: 110
-ETag: W/"6e-cnbZbwOaAL+vRDjTDSHRaAJ+L/8"
-Date: Fri, 16 Oct 2026 00:03:46 GMT
-Connection: keep-alive
-Keep-Alive: timeout=5
+# Profil (terlindungi)
+curl -i http://localhost:3000/protected/profile \
+  -H "Authorization: Bearer <TOKEN>"
 
-{"id":4,"title":"Buy milk","done":false,"created_at":"2026-10-16 00:03:46","updated_at":"2026-10-16 00:03:46"}
-```
+# Tanpa token -> 401 { "error": "Access token required" }
+curl -i http://localhost:3000/protected/profile
 
-Siklus CRUD lengkap via `curl`:
+# Token diubah 1 karakter -> 401 { "error": "Invalid or expired token" }
+curl -i http://localhost:3000/protected/profile \
+  -H "Authorization: Bearer <TOKEN-TIDAK-VALID>"
 
-```bash
-curl -i http://localhost:3000/tasks                 # 200 daftar
-curl -i http://localhost:3000/tasks/1               # 200 satu task
-curl -i http://localhost:3000/tasks/99              # 404 { "error": "Task 99 not found" }
-curl -i -X POST http://localhost:3000/tasks -H "Content-Type: application/json" -d '{"title":"Buy milk"}'   # 201
-curl -i -X POST http://localhost:3000/tasks -H "Content-Type: application/json" -d '{}'                     # 400
-curl -i -X PUT http://localhost:3000/tasks/4 -H "Content-Type: application/json" -d '{"done":true}'         # 200
-curl -i -X DELETE http://localhost:3000/tasks/4                                                             # 204
+# Logout
+curl -i -X POST http://localhost:3000/auth/logout \
+  -H "Authorization: Bearer <TOKEN>"
+# -> 204
 ```
 
 ## Swagger UI
 
-Semua endpoint terdokumentasi di **`http://localhost:3000/docs`** dan tombol **"Try it out"** menjalankan siklus CRUD penuh. Spesifikasi OpenAPI ada di `openapi.json`.
+Buka `/docs`, klik **Authorize**, tempelkan access token (tanpa prefix `Bearer`), lalu coba **Try it out** pada `/protected/profile`.
 
 ![Swagger UI](docs/swagger.png)
-
-## Database Viewer
-
-![SQLite viewer](docs/sqlite-viewer.png)
-
-Snapshot di atas diambil dari `tasks.db` (struktur tabel + Browse Data + hasil query).
-
-### Contoh query SQL dan hasilnya
-
-```sql
-SELECT * FROM tasks;
-```
-
-```
-id  title               done
---  ------------------  ----
-1   Buy milk            0
-2   Write trip report   1
-3   Call the client     0
-```
-
-Mengubah database secara manual langsung terlihat lewat API **tanpa restart**:
-
-```sql
-UPDATE tasks SET done = 1;   -- 3 rows changed
-```
-
-```bash
-curl -s http://localhost:3000/tasks
-# -> semua task berubah menjadi "done": true
-```
-
-Observasi lengkap ada di [`docs/sqlite-exploration.md`](docs/sqlite-exploration.md).
-
-## Catatan: Data In-Memory vs Persisten
-
-Data sekarang disimpan di SQLite, sehingga **tetap ada setelah server di-restart**. (Di assignment sebelumnya, data hilang setiap restart karena hidup di array memori.) Bukti: buat task, hentikan server (`Ctrl+C`), jalankan `npm start` lagi, lalu `GET /tasks` — task baru masih ada.
-
-Karena database dibuat otomatis, `tasks.db` dimasukkan ke `.gitignore` agar repo bersih dan setiap orang mendapat database baru saat pertama kali menjalankan.
-
-## Extras
-
-- **Filter** — `GET /tasks?done=true` (klausa `WHERE`).
-- **Search** — `GET /tasks?search=milk` (operator `LIKE`, case-insensitive untuk ASCII).
-- **Sort** — `GET /tasks?sort=title` (klausa `ORDER BY ... COLLATE NOCASE`).
-- **Stats** — `GET /stats` memakai `COUNT()` di SQL, bukan menghitung di JavaScript.
-- **Reset** — `POST /reset` menghapus semua baris lalu memasukkan ulang 3 seed.
-- **Timestamp** — kolom `created_at`/`updated_at` (migrasi `ALTER TABLE`, `updated_at` diperbarui tiap `PUT`).
 
 ## Struktur Proyek
 
 ```
-.
-├── index.js        # lapisan API (route Express) — tidak menyimpan data di memori
-├── db.js           # lapisan data: koneksi, skema, migrasi, dan semua query SQL
-├── openapi.json    # spesifikasi OpenAPI 3 untuk Swagger UI
-├── package.json
-├── tasks.db        # database SQLite (dibuat otomatis; di-ignore Git)
-└── docs/
-    ├── swagger.png          # screenshot Swagger UI
-    ├── sqlite-viewer.png    # screenshot database viewer
-    └── sqlite-exploration.md
+src/
+  app.js                      # membangun Express app (inject dependencies)
+  server.js                   # composition root: env, Supabase, listen
+  lib/supabaseClient.js       # inisialisasi client Supabase dari env (anon key)
+  middleware/auth.js          # middleware: ekstraksi + verifikasi Bearer token
+  routes/authRoutes.js        # /auth/signup, /auth/login
+  routes/protectedRoutes.js   # /protected/*, /auth/logout, /public/info
+  repositories/               # (Task API) in-memory / sqlite / postgres
+  services/                   # (Task API) business logic + error mapping
+openapi.json                  # spesifikasi OpenAPI 3 (skema Bearer)
+.env.example
 ```
+
+### Middleware `auth.js`
+
+Satu fungsi yang mengekstrak token dari header `Authorization: Bearer <token>`, memverifikasinya lewat `supabase.auth.getUser(token)`, lalu menaruh `req.user` (data terverifikasi) dan meneruskan ke handler. Diterapkan ke `/protected/profile`, `/protected/dashboard`, dan `/auth/logout`.
+
+## Catatan & Batasan
+
+- **Server tidak mempercayai client:** token selalu diverifikasi ke Supabase (`getUser`), tidak hanya di-*decode*.
+- **Sign out:** karena sesi tidak disimpan di server (stateless), `signOut` tidak "mencabut" JWT yang sudah diterbitkan sampai token kedaluwarsa. Ini batasan umum pada auth berbasis JWT — dicatat di sini sesuai anjuran PRD.
+- **Rate limit & domain email:** Supabase membatasi frekuensi email (mis. `email rate limit exceeded`) dan menolak domain tertentu seperti `example.com`. Gunakan email uji yang wajar dan hindari signup berulang saat menguji. Untuk latihan, nonaktifkan *Confirm email*.
+- Tidak ada rahasia yang di-commit: `.env` masuk `.gitignore`, hanya `service_role`-free **anon key** yang dipakai.
 
 ## Lisensi
 
