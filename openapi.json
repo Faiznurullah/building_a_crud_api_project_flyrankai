@@ -27,7 +27,8 @@
         "tags": ["Tasks"],
         "parameters": [
           { "name": "done", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "Filter by completion status" },
-          { "name": "search", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Case-insensitive title search" }
+          { "name": "search", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Case-insensitive title search (SQL LIKE)" },
+          { "name": "sort", "in": "query", "required": false, "schema": { "type": "string", "enum": ["title"] }, "description": "Sort by title (ORDER BY)" }
         ],
         "responses": {
           "200": {

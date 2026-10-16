@@ -2,7 +2,7 @@ const express = require("express");
 const swaggerUi = require("swagger-ui-express");
 const openapi = require("./openapi.json");
 const {
-  getAllTasks,
+  findTasks,
   getTaskById,
   createTask,
   updateTask,
@@ -27,18 +27,11 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/tasks", (req, res) => {
-  const { done, search } = req.query;
-  let result = getAllTasks();
-  if (done === "true" || done === "false") {
-    const want = done === "true";
-    result = result.filter((t) => t.done === want);
-  }
-  if (typeof search === "string" && search.length > 0) {
-    result = result.filter((t) =>
-      t.title.toLowerCase().includes(search.toLowerCase())
-    );
-  }
-  res.json(result);
+  const { done, search, sort } = req.query;
+  let doneFilter;
+  if (done === "true") doneFilter = true;
+  else if (done === "false") doneFilter = false;
+  res.json(findTasks({ done: doneFilter, search, sort }));
 });
 
 app.get("/tasks/:id", (req, res) => {

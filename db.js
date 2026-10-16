@@ -35,6 +35,23 @@ function getAllTasks() {
   return db.prepare("SELECT * FROM tasks ORDER BY id").all().map(rowToTask);
 }
 
+function findTasks({ done, search, sort } = {}) {
+  const where = [];
+  const params = [];
+  if (done === true || done === false) {
+    where.push("done = ?");
+    params.push(done ? 1 : 0);
+  }
+  if (typeof search === "string" && search.length > 0) {
+    where.push("title LIKE ?");
+    params.push(`%${search}%`);
+  }
+  let sql = "SELECT * FROM tasks";
+  if (where.length) sql += " WHERE " + where.join(" AND ");
+  sql += sort === "title" ? " ORDER BY title COLLATE NOCASE ASC" : " ORDER BY id";
+  return db.prepare(sql).all(...params).map(rowToTask);
+}
+
 function getTaskById(id) {
   const row = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
   return row ? rowToTask(row) : undefined;
@@ -84,6 +101,7 @@ function resetTasks() {
 module.exports = {
   db,
   getAllTasks,
+  findTasks,
   getTaskById,
   createTask,
   updateTask,
