@@ -1,17 +1,17 @@
 const express = require("express");
+const { authMiddleware } = require("../middleware/auth");
 
 function protectedRoutes() {
   const router = express.Router();
 
-  // Stage 2: only checks that a Bearer token is present. Real verification
-  // (supabase.auth.getUser) is added in Stage 3.
-  router.get("/protected/profile", (req, res) => {
-    const authHeader = req.headers.authorization || req.headers.Authorization;
-    const hasBearer = typeof authHeader === "string" && authHeader.startsWith("Bearer ") && authHeader.slice(7).trim() !== "";
-    if (!hasBearer) {
-      return res.status(401).json({ error: "Access token required" });
-    }
-    res.status(200).json({ message: "Token received. Verification not implemented yet." });
+  router.get("/protected/profile", authMiddleware, (req, res) => {
+    const user = req.user;
+    res.status(200).json({
+      id: user.id,
+      email: user.email,
+      created_at: user.created_at,
+      user_metadata: user.user_metadata,
+    });
   });
 
   return router;
