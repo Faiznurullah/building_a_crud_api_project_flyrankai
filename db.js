@@ -12,13 +12,30 @@ db.exec(`
   )
 `);
 
+// Migration: add timestamp columns to pre-existing databases.
+const columns = db.prepare("PRAGMA table_info(tasks)").all().map((c) => c.name);
+if (!columns.includes("created_at")) {
+  db.exec("ALTER TABLE tasks ADD COLUMN created_at TEXT");
+}
+if (!columns.includes("updated_at")) {
+  db.exec("ALTER TABLE tasks ADD COLUMN updated_at TEXT");
+}
+db.prepare(
+  `UPDATE tasks
+      SET created_at = COALESCE(created_at, datetime('now')),
+          updated_at = COALESCE(updated_at, datetime('now'))
+    WHERE created_at IS NULL OR updated_at IS NULL`
+).run();
+
 const SEED = [
   { title: "Buy milk", done: 0 },
   { title: "Write trip report", done: 1 },
   { title: "Call the client", done: 0 },
 ];
 
-const insertSeed = db.prepare("INSERT INTO tasks (title, done) VALUES (?, ?)");
+const insertSeed = db.prepare(
+  "INSERT INTO tasks (title, done, created_at, updated_at) VALUES (?, ?, datetime('now'), datetime('now'))"
+);
 const seedAll = db.transaction((rows) => {
   for (const row of rows) insertSeed.run(row.title, row.done);
 });
@@ -29,7 +46,13 @@ if (count === 0) {
   console.log(`Seeded ${SEED.length} tasks into ${DB_PATH}`);
 }
 
-const rowToTask = (row) => ({ id: row.id, title: row.title, done: row.done === 1 });
+const rowToTask = (row) => ({
+  id: row.id,
+  title: row.title,
+  done: row.done === 1,
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+});
 
 function getAllTasks() {
   return db.prepare("SELECT * FROM tasks ORDER BY id").all().map(rowToTask);
@@ -58,7 +81,11 @@ function getTaskById(id) {
 }
 
 function createTask(title) {
-  const info = db.prepare("INSERT INTO tasks (title, done) VALUES (?, 0)").run(title);
+  const info = db
+    .prepare(
+      "INSERT INTO tasks (title, done, created_at, updated_at) VALUES (?, 0, datetime('now'), datetime('now'))"
+    )
+    .run(title);
   return getTaskById(info.lastInsertRowid);
 }
 
@@ -74,6 +101,7 @@ function updateTask(id, fields) {
     params.push(fields.done ? 1 : 0);
   }
   if (sets.length === 0) return undefined;
+  sets.push("updated_at = datetime('now')");
   params.push(id);
   const info = db.prepare(`UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`).run(...params);
   return info.changes === 0 ? undefined : getTaskById(id);

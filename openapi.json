@@ -130,7 +130,9 @@
         "properties": {
           "id": { "type": "integer", "example": 1 },
           "title": { "type": "string", "example": "Buy milk" },
-          "done": { "type": "boolean", "example": false }
+          "done": { "type": "boolean", "example": false },
+          "created_at": { "type": "string", "format": "date-time", "example": "2026-10-16 06:00:00" },
+          "updated_at": { "type": "string", "format": "date-time", "example": "2026-10-16 06:00:00" }
         }
       },
       "Error": {
