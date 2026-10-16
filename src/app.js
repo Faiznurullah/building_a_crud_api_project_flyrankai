@@ -3,6 +3,7 @@ const swaggerUi = require("swagger-ui-express");
 const openapi = require("../openapi.json");
 const { taskRoutes } = require("./routes/taskRoutes");
 const { authRoutes } = require("./routes/authRoutes");
+const { protectedRoutes, publicRoutes } = require("./routes/protectedRoutes");
 const { HttpError } = require("./services/errors");
 
 /**
@@ -14,7 +15,7 @@ function buildApp({ taskService, redisClient = null } = {}) {
   app.use(express.json());
 
   app.get("/", (req, res) => {
-    res.json({ name: "Task API", version: "1.0", endpoints: ["/tasks", "/auth/signup", "/auth/login"] });
+    res.json({ name: "Task API", version: "1.0", endpoints: ["/tasks", "/auth/signup", "/auth/login", "/public/info", "/protected/profile"] });
   });
 
   app.get("/health", async (req, res) => {
@@ -31,6 +32,8 @@ function buildApp({ taskService, redisClient = null } = {}) {
   });
 
   app.use(authRoutes());
+  app.use(publicRoutes());
+  app.use(protectedRoutes());
   app.use(taskRoutes(taskService));
 
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi));
