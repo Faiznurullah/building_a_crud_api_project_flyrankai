@@ -4,6 +4,7 @@ const { createRepository } = require("./repositories");
 const { TaskService } = require("./services/taskService");
 const { buildApp } = require("./app");
 const { createRedisClient } = require("./redisClient");
+const { supabase } = require("./lib/supabaseClient");
 
 const PORT = process.env.PORT || 3000;
 
@@ -19,6 +20,11 @@ async function main() {
 
   const server = app.listen(PORT, () => {
     console.log(`Task API listening on http://localhost:${PORT} (docs at /docs)`);
+    if (supabase?.auth) {
+      console.log("Server running and connected to Supabase");
+    } else {
+      console.warn("Warning: Supabase client not configured (check SUPABASE_URL / SUPABASE_KEY)");
+    }
   });
 
   const shutdown = async () => {
