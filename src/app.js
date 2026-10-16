@@ -4,13 +4,14 @@ const openapi = require("../openapi.json");
 const { taskRoutes } = require("./routes/taskRoutes");
 const { authRoutes } = require("./routes/authRoutes");
 const { protectedRoutes, publicRoutes } = require("./routes/protectedRoutes");
+const { aiRoutes } = require("./routes/aiRoutes");
 const { HttpError } = require("./services/errors");
 
 /**
  * Builds the Express app from injected dependencies. Storage and Redis are
  * provided from the composition root, so this file contains no configuration.
  */
-function buildApp({ taskService, redisClient = null } = {}) {
+function buildApp({ taskService, redisClient = null, aiService = null, aiRequireAuth = false } = {}) {
   const app = express();
   app.use(express.json());
 
@@ -34,6 +35,7 @@ function buildApp({ taskService, redisClient = null } = {}) {
   app.use(authRoutes());
   app.use(publicRoutes());
   app.use(protectedRoutes());
+  if (aiService) app.use(aiRoutes(aiService, { requireAuth: aiRequireAuth }));
   app.use(taskRoutes(taskService));
 
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi));
